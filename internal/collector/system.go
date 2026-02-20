@@ -208,15 +208,43 @@ func GetDiskStats() DiskStats {
 }
 
 func isRealInterface(name string) bool {
-	// Accept: physical ethernet/wifi, docker, bridge, bond, vlan
-	prefixes := []string{"eth", "en", "wlan", "wl", "wifi", "docker", "br-", "bond", "vlan", "ens", "eno", "enp", "wlp"}
-	// Also exact names like "docker0"
-	exactNames := map[string]bool{"docker0": true}
-	if exactNames[name] { return true }
-	for _, p := range prefixes {
-		if strings.HasPrefix(name, p) { return true }
+	// 1. 读 type 文件，非 Ethernet(1) 直接排除（sit=776, ip6tnl=769 等隧道）
+	typeBytes, err := os.ReadFile("/sys/class/net/" + name + "/type")
+	if err != nil {
+		return false
 	}
+	if strings.TrimSpace(string(typeBytes)) != "1" {
+		return false
+	}
+
+	// 2. 通过 sysfs 符号链接判断是否为物理设备
+	dest, err := os.Readlink("/sys/class/net/" + name)
+	if err != nil {
+		return false
+	}
+
+	// 非 virtual 路径 → 物理网卡，直接保留
+	if !strings.Contains(dest, "/virtual/") {
+		return true
+	}
+
+	// 3. virtual 设备：有 peer_ifindex 的是 veth（容器点对点网卡），排除
+	if _, err := os.Stat("/sys/class/net/" + name + "/peer_ifindex"); err == nil {
+		return false
+	}
+
+	// 4. virtual 设备：有 bridge 目录的是网桥（docker0, br-xxx）
+	//    仅当系统安装了 docker 时才保留
+	if _, err := os.Stat("/sys/class/net/" + name + "/bridge"); err == nil {
+		return dockerInstalled()
+	}
+
 	return false
+}
+
+func dockerInstalled() bool {
+	_, err := exec.LookPath("docker")
+	return err == nil
 }
 
 func GetNetworkStats() NetworkStats {
@@ -232,8 +260,6 @@ func GetNetworkStats() NetworkStats {
 	var interfaces []NetworkInterface
 	var totalSent, totalRecv uint64
 	for _, iface := range ifaces {
-		if iface.Name == "lo" { continue }
-		// Only keep physical NICs, docker/bridge devices; skip virtual tunnels
 		if !isRealInterface(iface.Name) { continue }
 		ni := NetworkInterface{Name: iface.Name}
 		for _, addr := range iface.Addrs {

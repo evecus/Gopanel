@@ -31,7 +31,7 @@ type SystemInfo struct {
 	CPUCores        int32  `json:"cpu_cores"`
 	CPUThreads      int    `json:"cpu_threads"`
 	PublicIP        string `json:"public_ip"`
-	LocalIPs        []string `json:"local_ips"`
+	LocalIPv4       string `json:"local_ipv4"`
 }
 
 type CPUStats struct {
@@ -131,13 +131,24 @@ func GetSystemInfo() SystemInfo {
 		si.CPUCores = cpuInfos[0].Cores
 	}
 
-	// Local IPs
+	// Local IPv4 - 只取第一个私网 IPv4 地址
 	ifaces, _ := net.Interfaces()
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagLoopback != 0 { continue }
 		addrs, _ := iface.Addrs()
 		for _, addr := range addrs {
-			si.LocalIPs = append(si.LocalIPs, addr.String())
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() || ip.IsLinkLocalUnicast() { continue }
+			if ip.To4() == nil { continue } // 只要 IPv4
+			if si.LocalIPv4 == "" {
+				si.LocalIPv4 = addr.String() // 带 CIDR，如 10.0.0.2/24
+			}
 		}
 	}
 	return si

@@ -62,43 +62,15 @@
         </div>
       </div>
 
-      <!-- System info -->
-      <div class="card" style="grid-column:1/-1">
-        <div class="sh">
-          <div class="si">💻</div>
-          <div>
-            <div class="st">{{ t('system_info') }}</div>
-            <div class="sd">{{ t('system_info_desc') }}</div>
-          </div>
-        </div>
-        <div class="info-grid" v-if="sysInfo.hostname">
-          <div class="ig-item" v-for="item in infoItems" :key="item.label">
-            <div class="ig-lbl">{{ item.label }}</div>
-            <div class="ig-val">{{ item.value }}</div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
+import { ref, onMounted } from 'vue'
 import { useI18n } from '../stores/i18n.js'
 const i18n = useI18n(); const t = k => i18n.t(k)
 const creds = ref({ username:'', password:'', new_username:'', new_password:'' })
 const credMsg = ref(''), credErr = ref(''), credLoading = ref(false)
-const sysInfo = ref({})
-const infoItems = computed(() => [
-  {label:t('hostname'), value:sysInfo.value.hostname},
-  {label:t('os'), value:`${sysInfo.value.platform} ${sysInfo.value.platform_version}`},
-  {label:t('kernel'), value:sysInfo.value.kernel_version},
-  {label:t('arch'), value:sysInfo.value.arch},
-  {label:t('uptime'), value:sysInfo.value.uptime_str},
-  {label:'CPU', value:sysInfo.value.cpu_model},
-  {label:t('cpu_cores'), value:`${sysInfo.value.cpu_cores} cores / ${sysInfo.value.cpu_threads} threads`},
-  {label:t('local_ip'), value:(sysInfo.value.local_ips||[]).join(', ')},
-])
 async function saveCredentials() {
   credMsg.value=''; credLoading.value=true
   try {
@@ -110,7 +82,7 @@ async function saveCredentials() {
   } finally { credLoading.value=false }
 }
 function saveLang() { localStorage.setItem('gp_lang', i18n.locale.value) }
-onMounted(async () => { const {data}=await axios.get('/api/system'); sysInfo.value=data })
+onMounted(() => {})
 </script>
 <style scoped>
 .settings-page { }

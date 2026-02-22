@@ -129,19 +129,23 @@ func InspectContainer(id string) (*InspectResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, "docker", "inspect",
-		"--format", `{{json .}}`, id).Output()
+	// docker inspect always returns a JSON array
+	out, err := exec.CommandContext(ctx, "docker", "inspect", id).Output()
 	if err != nil {
 		return nil, fmt.Errorf("docker inspect failed: %w", err)
 	}
 
 	var raw []map[string]interface{}
 	if err := json.Unmarshal(out, &raw); err != nil || len(raw) == 0 {
-		return nil, fmt.Errorf("parse error")
+		return nil, fmt.Errorf("parse error: %v (output: %.300s)", err, string(out))
 	}
 	c := raw[0]
 
 	result := &InspectResult{}
+	result.Env = []string{}
+	result.Mounts = []string{}
+	result.Networks = []string{}
+	result.Cmd = []string{}
 
 	if cfg, ok := c["Config"].(map[string]interface{}); ok {
 		result.Image, _ = cfg["Image"].(string)
@@ -159,6 +163,26 @@ func InspectContainer(id string) (*InspectResult, error) {
 				}
 			}
 		}
+		// Check compose labels
+		if labels, ok := cfg["Labels"].(map[string]interface{}); ok {
+			if wdir, ok := labels["com.docker.compose.project.working_dir"].(string); ok && wdir != "" {
+				candidates := []string{
+					wdir + "/docker-compose.yml",
+					wdir + "/docker-compose.yaml",
+					wdir + "/compose.yml",
+					wdir + "/compose.yaml",
+				}
+				for _, p := range candidates {
+					if fileExists(p) {
+						result.ComposeFile = p
+						break
+					}
+				}
+				if result.ComposeFile == "" {
+					result.ComposeFile = wdir + "/docker-compose.yml"
+				}
+			}
+		}
 	}
 
 	if state, ok := c["State"].(map[string]interface{}); ok {
@@ -169,6 +193,25 @@ func InspectContainer(id string) (*InspectResult, error) {
 	if hc, ok := c["HostConfig"].(map[string]interface{}); ok {
 		if rp, ok := hc["RestartPolicy"].(map[string]interface{}); ok {
 			result.RestartPolicy, _ = rp["Name"].(string)
+		}
+		// Build ports string from PortBindings
+		if pb, ok := hc["PortBindings"].(map[string]interface{}); ok {
+			var parts []string
+			for containerPort, bindings := range pb {
+				if bList, ok := bindings.([]interface{}); ok {
+					for _, b := range bList {
+						if bm, ok := b.(map[string]interface{}); ok {
+							hostPort, _ := bm["HostPort"].(string)
+							hostIP, _ := bm["HostIp"].(string)
+							if hostIP == "" {
+								hostIP = "0.0.0.0"
+							}
+							parts = append(parts, fmt.Sprintf("%s:%s->%s", hostIP, hostPort, containerPort))
+						}
+					}
+				}
+			}
+			result.Ports = strings.Join(parts, ", ")
 		}
 	}
 
@@ -190,32 +233,13 @@ func InspectContainer(id string) (*InspectResult, error) {
 		}
 	}
 
-	// Check docker-compose label
-	if cfg, ok := c["Config"].(map[string]interface{}); ok {
-		if labels, ok := cfg["Labels"].(map[string]interface{}); ok {
-			if wdir, ok := labels["com.docker.compose.project.working_dir"].(string); ok && wdir != "" {
-				// try to find compose file
-				candidates := []string{
-					wdir + "/docker-compose.yml",
-					wdir + "/docker-compose.yaml",
-					wdir + "/compose.yml",
-					wdir + "/compose.yaml",
-				}
-				for _, p := range candidates {
-					if _, err := exec.Command("test", "-f", p).Output(); err == nil {
-						result.ComposeFile = p
-						break
-					}
-				}
-				if result.ComposeFile == "" {
-					// fallback: use working dir + compose.yml
-					result.ComposeFile = wdir + "/docker-compose.yml"
-				}
-			}
-		}
-	}
-
 	return result, nil
+}
+
+// fileExists checks whether a file path exists
+func fileExists(path string) bool {
+	out, err := exec.Command("bash", "-c", fmt.Sprintf("test -f '%s' && echo yes", path)).Output()
+	return err == nil && strings.TrimSpace(string(out)) == "yes"
 }
 
 func ReadComposeFile(path string) (string, error) {

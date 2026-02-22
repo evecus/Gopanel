@@ -51,14 +51,12 @@
           </div>
         </div>
         <div class="cc-actions">
-          <button class="btn btn-sm btn-cyan"  v-if="c.state!=='running'" @click="action(c,'start')">▶ {{ t('start') }}</button>
-          <button class="btn btn-sm btn-ghost" v-if="c.state==='running'" @click="action(c,'stop')">⏹ {{ t('stop') }}</button>
-          <button class="btn btn-sm btn-ghost" @click="action(c,'restart')">↺ {{ t('restart') }}</button>
-          <div class="cc-actions-right">
-            <button class="btn btn-sm btn-ghost" @click="showInspect(c)" title="容器参数">⚙️</button>
-            <button class="btn btn-sm btn-ghost" @click="pullUpdate(c)" :disabled="updating===c.id" title="更新镜像">{{ updating===c.id ? '⏳' : '⬆️' }}</button>
-            <button class="btn btn-sm btn-ghost" @click="showLogs(c)">📋 {{ t('logs') }}</button>
-          </div>
+          <button class="btn btn-icon btn-cyan"  v-if="c.state!=='running'" @click="action(c,'start')" title="启动">▶</button>
+          <button class="btn btn-icon btn-ghost" v-if="c.state==='running'" @click="action(c,'stop')" title="停止">⏹</button>
+          <button class="btn btn-icon btn-ghost" @click="action(c,'restart')" title="重启">↺</button>
+          <button class="btn btn-icon btn-ghost" @click="showInspect(c)" title="参数">⚙️</button>
+          <button class="btn btn-icon btn-ghost" @click="pullUpdate(c)" :disabled="updating===c.id" title="更新镜像">{{ updating===c.id ? '⏳' : '⬆️' }}</button>
+          <button class="btn btn-icon btn-ghost" @click="showLogs(c)" title="日志">📋</button>
         </div>
         </div>
       </template>
@@ -298,7 +296,7 @@ onMounted(load)
 .inp { background:#f8faff;border:1.5px solid rgba(99,102,241,0.15);color:#1e1b4b;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none; }
 .inp:focus { border-color:#6366f1; }
 .container-grid { display:flex;flex-wrap:wrap;gap:12px;align-content:flex-start; }
-.ccard { flex:1 1 280px;min-width:0;background:#fff;border:1px solid rgba(99,102,241,0.1);border-radius:14px;padding:14px;box-shadow:0 2px 12px rgba(99,102,241,0.06);transition:transform 0.2s;box-sizing:border-box; }
+.ccard { flex:0 0 280px;background:#fff;border:1px solid rgba(99,102,241,0.1);border-radius:14px;padding:14px;box-shadow:0 2px 12px rgba(99,102,241,0.06);transition:transform 0.2s;box-sizing:border-box; }
 .ccard:hover { transform:translateY(-2px); }
 .cc-head { display:flex;align-items:center;gap:8px;margin-bottom:10px; }
 .cc-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
@@ -316,8 +314,7 @@ onMounted(load)
 .cm { display:flex;align-items:center;gap:6px; }
 .mini-bar { flex:1;height:4px;background:#f0f4ff;border-radius:2px;overflow:hidden; }
 .mini-fill { height:100%;border-radius:2px;transition:width 0.5s; }
-.cc-actions { display:flex;gap:6px;align-items:center;flex-wrap:nowrap; }
-.cc-actions-right { display:flex;gap:4px;margin-left:auto;flex-shrink:0; }
+.cc-actions { display:flex;gap:5px;align-items:center;flex-wrap:nowrap; }
 .card { background:#fff;border:1px solid rgba(99,102,241,0.1);border-radius:14px;padding:18px;box-shadow:0 2px 12px rgba(99,102,241,0.06); }
 .empty-state { text-align:center;padding:60px 20px; }
 .modal-overlay { position:fixed;inset:0;background:rgba(30,27,75,0.4);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:1000; }
@@ -326,6 +323,7 @@ onMounted(load)
 .btn { display:inline-flex;align-items:center;gap:4px;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:all 0.2s; }
 .btn:disabled { opacity:0.5;cursor:not-allowed; }
 .btn-sm { padding:5px 11px;font-size:12px; }
+.btn-icon { padding:5px 8px;font-size:13px;border-radius:8px; }
 .btn-cyan { background:linear-gradient(135deg,#06b6d4,#10b981);color:#fff;box-shadow:0 2px 8px rgba(6,182,212,0.3); }
 .btn-ghost { background:#fff;color:#6b7280;border:1px solid rgba(99,102,241,0.15); }
 .btn-ghost:hover { background:rgba(99,102,241,0.06); }
@@ -350,7 +348,10 @@ onMounted(load)
 @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.5} }
 .row-break { flex-basis:100%;width:100%;height:0;margin:0; }
 @media (max-width:600px) {
-  .ccard { flex:1 1 100%; }
+  .ccard { flex:0 0 calc(50% - 6px); }
   .inspect-grid { grid-template-columns:1fr; }
+}
+@media (max-width:400px) {
+  .ccard { flex:0 0 100%; }
 }
 </style>

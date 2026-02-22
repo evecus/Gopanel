@@ -3,7 +3,7 @@
     <div class="toolbar">
       <input class="inp" style="width:200px" v-model="search" :placeholder="`🔍 ${t('search')}...`" />
       <button class="btn btn-ghost btn-sm" @click="load(true)">🔄 {{ t('refresh') }}</button>
-      <span v-if="fromCache" style="font-size:11px;color:#f59e0b;margin-left:4px">📦 缓存数据</span>
+      <span v-if="fromCache" style="font-size:11px;color:#f59e0b;margin-left:4px">📦 缓存</span>
       <span style="margin-left:auto;font-size:12px;color:#9ca3af">{{ filtered.length }} {{ t('container') }}</span>
     </div>
 
@@ -15,14 +15,26 @@
           <span class="tag" :class="stateTag(c.state)">{{ c.state }}</span>
         </div>
         <div class="cc-img">🐳 {{ c.image }}</div>
-        <div v-if="c.ports" class="cc-ports">
-          <span
-            class="tag tag-blue port-tag"
-            v-for="p in c.ports?.split(',').slice(0,6)"
-            :key="p"
-            @click="openPort(p.trim())"
-            :title="`点击打开 ${p.trim()}`"
-          >{{ p.trim() }}</span>
+        <!-- 端口区域固定两行高度，保持卡片布局整齐 -->
+        <div class="cc-ports-wrap">
+          <div class="cc-ports-row">
+            <span
+              v-if="parsedPorts(c.ports)[0]"
+              class="tag tag-blue port-tag"
+              @click="openPort(parsedPorts(c.ports)[0])"
+              :title="isClickablePort(parsedPorts(c.ports)[0]) ? `点击打开 ${parsedPorts(c.ports)[0]}` : parsedPorts(c.ports)[0]"
+              :style="isClickablePort(parsedPorts(c.ports)[0]) ? '' : 'cursor:default;opacity:0.75'"
+            >{{ parsedPorts(c.ports)[0] }}</span>
+          </div>
+          <div class="cc-ports-row">
+            <span
+              v-if="parsedPorts(c.ports)[1]"
+              class="tag tag-blue port-tag"
+              @click="openPort(parsedPorts(c.ports)[1])"
+              :title="isClickablePort(parsedPorts(c.ports)[1]) ? `点击打开 ${parsedPorts(c.ports)[1]}` : parsedPorts(c.ports)[1]"
+              :style="isClickablePort(parsedPorts(c.ports)[1]) ? '' : 'cursor:default;opacity:0.75'"
+            >{{ parsedPorts(c.ports)[1] }}</span>
+          </div>
         </div>
         <div class="cc-metrics" v-if="c.state==='running'">
           <div class="cm">
@@ -195,8 +207,50 @@ async function showLogs(c) {
   logContent.value = data.logs || ''
 }
 
+// Parse and clean a raw docker ports string into deduplicated logical entries
+// e.g. "0.0.0.0:4444->4444/tcp[::]:4444->4444/tcp" => ["0.0.0.0:4444->4444/tcp"]
+// e.g. "443/tcp 0.0.0.0:80->80/tcp [::]:80->80/tcp" => ["443/tcp", "0.0.0.0:80->80/tcp"]
+function parsedPorts(portsStr) {
+  if (!portsStr) return []
+  // Step 1: insert comma before every port-like token boundary
+  // Handles concatenated strings like "0.0.0.0:X->Y/proto[::]:X->Y/proto"
+  let s = portsStr
+  // Insert separator before [:: patterns and before digit-only/proto patterns that follow a /tcp or /udp
+  s = s.replace(/(\/(?:tcp|udp|sctp))(\[)/g, '$1,$2')
+  s = s.replace(/(\/(?:tcp|udp|sctp))(\d)/g, '$1,$2')
+  s = s.replace(/(\/(?:tcp|udp|sctp))(\s+)(\S)/g, '$1,$3')
+  // Split on commas and whitespace
+  const tokens = s.split(/[,\s]+/).map(t => t.trim()).filter(Boolean)
+
+  // Step 2: group by container port; prefer IPv4 binding over IPv6
+  const portMap = new Map() // containerPort/proto -> display string
+  const exposed = [] // non-bound exposed ports like "443/tcp"
+
+  for (const tok of tokens) {
+    // Pattern: host:port->container/proto  or  [::]:port->container/proto
+    const m = tok.match(/^(\[?[^\]]*\]?):(\d+)->(\d+\/\w+)$/)
+    if (m) {
+      const key = m[3]
+      const isIPv4 = !tok.startsWith('[')
+      if (!portMap.has(key) || isIPv4) {
+        portMap.set(key, tok)
+      }
+    } else if (/^\d+\/\w+$/.test(tok)) {
+      // exposed-only port like 443/tcp
+      if (!exposed.includes(tok)) exposed.push(tok)
+    }
+  }
+
+  const result = [...exposed, ...portMap.values()]
+  return result
+}
+
+function isClickablePort(portStr) {
+  return /^[0-9.]+:(\d+)->/.test(portStr)
+}
+
 function openPort(portStr) {
-  const m = portStr.match(/(?:0\.0\.0\.0|\[::\]):(\d+)->/)
+  const m = portStr.match(/^[0-9.]+:(\d+)->/)
   if (m) { window.open(`http://${window.location.hostname}:${m[1]}`, '_blank') }
 }
 
@@ -265,7 +319,9 @@ onMounted(() => load())
 .cc-dot.stop { background:#9ca3af; }
 .cc-name { font-size:15px;font-weight:700;color:#1e1b4b;flex:1;overflow:hidden;text-overflow:ellipsis; }
 .cc-img { font-size:12px;color:#9ca3af;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-.cc-ports { display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px; }
+.cc-ports-wrap { margin-bottom:8px; }
+.cc-ports-row { height:22px;display:flex;align-items:center;margin-bottom:2px; }
+.cc-ports-row:last-child { margin-bottom:0; }
 .port-tag { cursor:pointer;transition:all 0.15s; }
 .port-tag:hover { background:rgba(6,182,212,0.2);color:#0e7490;transform:scale(1.05); }
 .cc-metrics { display:flex;flex-direction:column;gap:6px;margin-bottom:12px;background:rgba(99,102,241,0.04);border-radius:8px;padding:10px; }

@@ -17,8 +17,7 @@
 ```bash
 # 从 Release 下载
 wget https://github.com/evecus/Gopanel/releases/latest/download/gopanel-linux-amd64.tar.gz
-tar xzf gopanel-linux-amd64.tar.gz
-cp config.yaml.example config.yaml
+tar -xzf gopanel-linux-amd64.tar.gz
 
 # 运行（默认端口 1080）
 ./gopanel-linux-amd64 -config config.yaml

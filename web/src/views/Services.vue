@@ -24,38 +24,37 @@
         <table class="table">
           <thead><tr>
             <th>服务名</th>
-            <th>描述</th>
-            <th>状态</th>
-            <th>内存</th>
-            <th>CPU时间</th>
-            <th>文件状态</th>
-            <th>操作</th>
+            <th style="white-space:nowrap">状态</th>
+            <th style="white-space:nowrap">内存</th>
+            <th style="white-space:nowrap">CPU时间</th>
+            <th style="white-space:nowrap">文件状态</th>
+            <th style="white-space:nowrap;width:1%">操作</th>
           </tr></thead>
           <tbody>
             <tr v-for="svc in filtered" :key="svc.unit" style="cursor:pointer" @click="showDetail(svc)">
               <td>
-                <span style="font-weight:600;color:#1a1040;font-size:12px">{{ svc.unit }}</span>
-                <div v-if="svc.main_pid && svc.main_pid!=='0'" style="font-size:10px;color:#9ca3af">PID {{ svc.main_pid }}</div>
+                <div style="font-weight:600;color:#1a1040;font-size:12px;white-space:nowrap" :title="svc.unit">{{ svc.unit }}</div>
+                <div style="font-size:10px;color:#9ca3af;white-space:nowrap" :title="svc.description">{{ svc.description }}</div>
+                <div v-if="svc.main_pid && svc.main_pid!=='0'" style="font-size:10px;color:#b0b8d0">PID {{ svc.main_pid }}</div>
               </td>
-              <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6b7280;font-size:12px">{{ svc.description }}</td>
-              <td>
+              <td style="white-space:nowrap">
                 <span class="tag" :class="stateTag(svc.active)">{{ svc.active }}</span>
-                <span v-if="svc.sub" style="margin-left:4px;font-size:10px;color:#9ca3af">({{ svc.sub }})</span>
+                <span v-if="svc.sub" style="margin-left:3px;font-size:10px;color:#9ca3af">({{ svc.sub }})</span>
               </td>
-              <td>
+              <td style="white-space:nowrap">
                 <span v-if="svc.memory" class="mem-label">{{ svc.memory }}</span>
                 <span v-else style="color:#d1d5db;font-size:11px">—</span>
               </td>
-              <td>
+              <td style="white-space:nowrap">
                 <span v-if="svc.cpu_time" style="font-size:11px;color:#7c3aed;font-family:monospace">{{ svc.cpu_time }}</span>
                 <span v-else style="color:#d1d5db;font-size:11px">—</span>
               </td>
-              <td>
+              <td style="white-space:nowrap">
                 <span v-if="svc.unit_file_state" class="tag" :class="fileStateTag(svc.unit_file_state)" style="font-size:10px">{{ svc.unit_file_state }}</span>
                 <span v-else style="color:#d1d5db;font-size:11px">—</span>
               </td>
-              <td @click.stop>
-                <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <td @click.stop style="white-space:nowrap">
+                <div style="display:flex;gap:3px;flex-wrap:nowrap;align-items:center">
                   <button class="btn btn-xs btn-cyan"  @click="action(svc,'start')"   v-if="svc.active!=='active'" title="启动">▶</button>
                   <button class="btn btn-xs btn-ghost" @click="action(svc,'stop')"    v-if="svc.active==='active'" title="停止">⏹</button>
                   <button class="btn btn-xs btn-ghost" @click="action(svc,'restart')" title="重启">↺</button>
@@ -350,5 +349,10 @@ onMounted(() => load())
 .empty-sub { font-size:12px;color:#9ca3af; }
 .animate-spin { display:inline-block;animation:spin 0.8s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
+.table { width:100%;border-collapse:collapse;table-layout:auto; }
+.table th { background:#f8faff;padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#7c3aed;border-bottom:1px solid rgba(124,58,237,0.1);text-align:left;white-space:nowrap; }
+.table td { padding:10px 12px;border-bottom:1px solid rgba(124,58,237,0.06);vertical-align:middle; }
+.table tr:last-child td { border-bottom:none; }
+.table tr:hover td { background:rgba(99,102,241,0.03); }
 code { font-family:monospace;background:rgba(99,102,241,0.08);padding:1px 5px;border-radius:4px;font-size:11px; }
 </style>

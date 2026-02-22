@@ -3,7 +3,7 @@
     <div class="toolbar">
       <input class="inp" style="width:200px" v-model="search" :placeholder="`🔍 ${t('search')}...`" />
       <button class="btn btn-ghost btn-sm" @click="load(true)">🔄 {{ t('refresh') }}</button>
-      <span v-if="fromCache" style="font-size:11px;color:#f59e0b;margin-left:4px">📦 缓存数据</span>
+      <span v-if="fromCache" style="font-size:11px;color:#f59e0b;margin-left:4px">📦 缓存</span>
       <span style="margin-left:auto;font-size:12px;color:#9ca3af">{{ filtered.length }} {{ t('container') }}</span>
     </div>
 

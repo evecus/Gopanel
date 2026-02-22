@@ -110,3 +110,209 @@ func GetContainerLogs(id string, lines int) (string, error) {
 	out, err := exec.CommandContext(ctx, "docker", "logs", "--tail", strconv.Itoa(lines), id).CombinedOutput()
 	return string(out), err
 }
+
+// InspectResult holds detailed container info
+type InspectResult struct {
+	Image         string   `json:"image"`
+	Status        string   `json:"status"`
+	Created       string   `json:"created"`
+	RestartPolicy string   `json:"restart_policy"`
+	Env           []string `json:"env"`
+	Mounts        []string `json:"mounts"`
+	Networks      []string `json:"networks"`
+	Ports         string   `json:"ports"`
+	Cmd           []string `json:"cmd"`
+	ComposeFile   string   `json:"compose_file"`
+}
+
+func InspectContainer(id string) (*InspectResult, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "docker", "inspect",
+		"--format", `{{json .}}`, id).Output()
+	if err != nil {
+		return nil, fmt.Errorf("docker inspect failed: %w", err)
+	}
+
+	var raw []map[string]interface{}
+	if err := json.Unmarshal(out, &raw); err != nil || len(raw) == 0 {
+		return nil, fmt.Errorf("parse error")
+	}
+	c := raw[0]
+
+	result := &InspectResult{}
+
+	if cfg, ok := c["Config"].(map[string]interface{}); ok {
+		result.Image, _ = cfg["Image"].(string)
+		if env, ok := cfg["Env"].([]interface{}); ok {
+			for _, e := range env {
+				if s, ok := e.(string); ok {
+					result.Env = append(result.Env, s)
+				}
+			}
+		}
+		if cmd, ok := cfg["Cmd"].([]interface{}); ok {
+			for _, v := range cmd {
+				if s, ok := v.(string); ok {
+					result.Cmd = append(result.Cmd, s)
+				}
+			}
+		}
+	}
+
+	if state, ok := c["State"].(map[string]interface{}); ok {
+		result.Status, _ = state["Status"].(string)
+	}
+	result.Created, _ = c["Created"].(string)
+
+	if hc, ok := c["HostConfig"].(map[string]interface{}); ok {
+		if rp, ok := hc["RestartPolicy"].(map[string]interface{}); ok {
+			result.RestartPolicy, _ = rp["Name"].(string)
+		}
+	}
+
+	if mounts, ok := c["Mounts"].([]interface{}); ok {
+		for _, m := range mounts {
+			if mp, ok := m.(map[string]interface{}); ok {
+				src, _ := mp["Source"].(string)
+				dst, _ := mp["Destination"].(string)
+				result.Mounts = append(result.Mounts, src+"->"+dst)
+			}
+		}
+	}
+
+	if netSettings, ok := c["NetworkSettings"].(map[string]interface{}); ok {
+		if networks, ok := netSettings["Networks"].(map[string]interface{}); ok {
+			for name := range networks {
+				result.Networks = append(result.Networks, name)
+			}
+		}
+	}
+
+	// Check docker-compose label
+	if cfg, ok := c["Config"].(map[string]interface{}); ok {
+		if labels, ok := cfg["Labels"].(map[string]interface{}); ok {
+			if wdir, ok := labels["com.docker.compose.project.working_dir"].(string); ok && wdir != "" {
+				// try to find compose file
+				candidates := []string{
+					wdir + "/docker-compose.yml",
+					wdir + "/docker-compose.yaml",
+					wdir + "/compose.yml",
+					wdir + "/compose.yaml",
+				}
+				for _, p := range candidates {
+					if _, err := exec.Command("test", "-f", p).Output(); err == nil {
+						result.ComposeFile = p
+						break
+					}
+				}
+				if result.ComposeFile == "" {
+					// fallback: use working dir + compose.yml
+					result.ComposeFile = wdir + "/docker-compose.yml"
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func ReadComposeFile(path string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "cat", path).Output()
+	if err != nil {
+		return "", fmt.Errorf("cannot read file: %w", err)
+	}
+	return string(out), nil
+}
+
+func WriteAndApplyCompose(path, content, containerID string) (string, error) {
+	// Write updated compose file
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Write the file
+	writeCmd := exec.Command("bash", "-c", fmt.Sprintf("cat > %s", path))
+	writeCmd.Stdin = strings.NewReader(content)
+	if out, err := writeCmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("write failed: %s %w", string(out), err)
+	}
+
+	// Get working directory from path
+	dir := path[:strings.LastIndex(path, "/")]
+	if dir == "" {
+		dir = "."
+	}
+
+	// docker compose down then up
+	downOut, _ := exec.CommandContext(ctx, "docker", "compose", "-f", path, "down").CombinedOutput()
+	upOut, err := exec.CommandContext(ctx, "docker", "compose", "-f", path, "up", "-d").CombinedOutput()
+	log := fmt.Sprintf("=== Working dir: %s ===\n\n=== docker compose down ===\n%s\n=== docker compose up -d ===\n%s", dir, string(downOut), string(upOut))
+	if err != nil {
+		return log, fmt.Errorf("compose up failed: %s", string(upOut))
+	}
+	return log, nil
+}
+
+func PullAndUpdateContainer(id string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
+
+	// Get image name
+	imgOut, err := exec.CommandContext(ctx, "docker", "inspect", "--format", "{{.Config.Image}}", id).Output()
+	if err != nil {
+		return "", fmt.Errorf("cannot get image: %w", err)
+	}
+	image := strings.TrimSpace(string(imgOut))
+
+	var logBuf strings.Builder
+	logBuf.WriteString(fmt.Sprintf("=== Pulling image: %s ===\n", image))
+
+	pullOut, _ := exec.CommandContext(ctx, "docker", "pull", image).CombinedOutput()
+	logBuf.Write(pullOut)
+
+	// Check if compose container
+	labelsOut, _ := exec.CommandContext(ctx, "docker", "inspect",
+		"--format", "{{index .Config.Labels \"com.docker.compose.project.working_dir\"}}", id).Output()
+	wdir := strings.TrimSpace(string(labelsOut))
+
+	if wdir != "" {
+		logBuf.WriteString(fmt.Sprintf("\n=== Detected docker-compose project at: %s ===\n", wdir))
+		// Find compose file
+		var composePath string
+		for _, name := range []string{"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"} {
+			p := wdir + "/" + name
+			if _, err := exec.Command("test", "-f", p).Output(); err == nil {
+				composePath = p
+				break
+			}
+		}
+		if composePath == "" {
+			composePath = wdir + "/docker-compose.yml"
+		}
+		logBuf.WriteString(fmt.Sprintf("Compose file: %s\n\n", composePath))
+
+		downOut, _ := exec.CommandContext(ctx, "docker", "compose", "-f", composePath, "down").CombinedOutput()
+		logBuf.WriteString("=== docker compose down ===\n")
+		logBuf.Write(downOut)
+
+		upOut, err2 := exec.CommandContext(ctx, "docker", "compose", "-f", composePath, "up", "-d").CombinedOutput()
+		logBuf.WriteString("\n=== docker compose up -d ===\n")
+		logBuf.Write(upOut)
+		if err2 != nil {
+			return logBuf.String(), fmt.Errorf("compose up failed")
+		}
+	} else {
+		// Plain docker container - get run args and recreate
+		logBuf.WriteString(fmt.Sprintf("\n=== Recreating container: %s ===\n", id))
+		stopOut, _ := exec.CommandContext(ctx, "docker", "stop", id).CombinedOutput()
+		logBuf.Write(stopOut)
+		rmOut, _ := exec.CommandContext(ctx, "docker", "rm", id).CombinedOutput()
+		logBuf.Write(rmOut)
+		logBuf.WriteString("Container stopped and removed. Please restart manually or redeploy with original run command.")
+	}
+
+	return logBuf.String(), nil
+}

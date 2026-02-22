@@ -21,6 +21,7 @@ import (
 )
 
 var configPath string
+var AppVersion = "dev"
 
 func SetConfigPath(p string) { configPath = p }
 
@@ -37,6 +38,7 @@ func SetupRouter(cfg *config.Config, db *sql.DB, hub *ws.Hub, webFS embed.FS) *g
 	api := r.Group("/api")
 	api.POST("/login", loginHandler(cfg))
 	api.GET("/ws", func(c *gin.Context) { hub.ServeWS(c.Writer, c.Request) })
+	api.GET("/version", func(c *gin.Context) { c.JSON(200, gin.H{"version": AppVersion}) })
 
 	auth := api.Group("/")
 	auth.Use(middleware.Auth(cfg.JWTSecret))

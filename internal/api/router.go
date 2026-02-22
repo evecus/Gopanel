@@ -13,6 +13,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/gopanel/gopanel/internal/api/middleware"
+	"github.com/gopanel/gopanel/internal/cache"
 	"github.com/gopanel/gopanel/internal/collector"
 	"github.com/gopanel/gopanel/internal/config"
 	"github.com/gopanel/gopanel/internal/store"
@@ -64,9 +65,9 @@ func SetupRouter(cfg *config.Config, db *sql.DB, hub *ws.Hub, webFS embed.FS) *g
 		})
 
 		auth.GET("/docker/containers", func(c *gin.Context) {
-			containers, err := collector.GetContainers()
-			if err != nil { c.JSON(200, []interface{}{}); return }
-			c.JSON(200, containers)
+			data, ok := cache.GetDockerContainers()
+			if !ok { c.JSON(200, []interface{}{}); return }
+			c.JSON(200, data)
 		})
 		auth.POST("/docker/containers/:id/:action", func(c *gin.Context) {
 			id, action := c.Param("id"), c.Param("action")
@@ -74,6 +75,7 @@ func SetupRouter(cfg *config.Config, db *sql.DB, hub *ws.Hub, webFS embed.FS) *g
 				c.JSON(400, gin.H{"error": "invalid action"}); return
 			}
 			if err := collector.ContainerAction(id, action); err != nil { c.JSON(500, gin.H{"error": err.Error()}); return }
+			cache.InvalidateDocker()
 			c.JSON(200, gin.H{"ok": true})
 		})
 		auth.GET("/docker/containers/:id/logs", func(c *gin.Context) {
@@ -115,10 +117,10 @@ func SetupRouter(cfg *config.Config, db *sql.DB, hub *ws.Hub, webFS embed.FS) *g
 		auth.GET("/services", func(c *gin.Context) {
 			sortBy  := c.DefaultQuery("sort", "")
 			sortDir := c.DefaultQuery("dir", "desc")
-			services, err := collector.GetServices()
-			if err != nil { c.JSON(200, []interface{}{}); return }
-			collector.SortServices(services, sortBy, sortDir)
-			c.JSON(200, services)
+			data, ok := cache.GetServices()
+			if !ok { c.JSON(200, []interface{}{}); return }
+			collector.SortServices(data, sortBy, sortDir)
+			c.JSON(200, data)
 		})
 		auth.POST("/services/:unit/:action", func(c *gin.Context) {
 			unit, action := c.Param("unit"), c.Param("action")
@@ -126,6 +128,7 @@ func SetupRouter(cfg *config.Config, db *sql.DB, hub *ws.Hub, webFS embed.FS) *g
 				c.JSON(400, gin.H{"error": "invalid action"}); return
 			}
 			if err := collector.ServiceAction(unit, action); err != nil { c.JSON(500, gin.H{"error": err.Error()}); return }
+			cache.InvalidateServices()
 			c.JSON(200, gin.H{"ok": true})
 		})
 		auth.GET("/services/:unit/logs", func(c *gin.Context) {

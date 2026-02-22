@@ -2,8 +2,7 @@
   <div>
     <div class="toolbar">
       <input class="inp" style="width:200px" v-model="search" :placeholder="`🔍 ${t('search')}...`" />
-      <button class="btn btn-ghost btn-sm" @click="load(true)">🔄 {{ t('refresh') }}</button>
-      <span v-if="fromCache" style="font-size:11px;color:#f59e0b;margin-left:4px">📦 缓存</span>
+      <button class="btn btn-ghost btn-sm" @click="load()">🔄 {{ t('refresh') }}</button>
       <span style="margin-left:auto;font-size:12px;color:#9ca3af">{{ filtered.length }} {{ t('container') }}</span>
     </div>
 
@@ -150,13 +149,10 @@ import axios from 'axios'
 import { useI18n } from '../stores/i18n.js'
 const i18n = useI18n(); const t = k => i18n.t(k)
 
-const CACHE_KEY = 'gopanel_docker_cache'
-
 const containers = ref([])
 const search = ref('')
 const logModal = ref(null)
 const logContent = ref('')
-const fromCache = ref(false)
 const inspectModal = ref(null)
 const inspectData = ref(null)
 const inspectTab = ref('info')
@@ -194,34 +190,15 @@ const groupedContainers = computed(() => {
 
 function stateTag(s) { return s==='running'?'tag tag-green':s==='paused'?'tag tag-yellow':'tag tag-gray' }
 
-function saveCache(data) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data })) } catch {}
-}
-function loadCache() {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    if (Date.now() - parsed.ts < 5 * 60 * 1000) return parsed.data
-  } catch {}
-  return null
-}
-
-async function load(force) {
-  if (!force) {
-    const cached = loadCache()
-    if (cached) { containers.value = cached; fromCache.value = true }
-  }
+async function load() {
   try {
     const { data } = await axios.get('/api/docker/containers')
     containers.value = data || []
-    saveCache(containers.value)
-    fromCache.value = false
   } catch { if (!containers.value.length) containers.value = [] }
 }
 
 async function action(c, act) {
-  try { await axios.post(`/api/docker/containers/${c.id}/${act}`); setTimeout(() => load(true), 1000) }
+  try { await axios.post(`/api/docker/containers/${c.id}/${act}`); setTimeout(() => load(), 1000) }
   catch(e) { alert(e.response?.data?.error || e.message) }
 }
 
@@ -311,7 +288,7 @@ async function pullUpdate(c) {
   finally { updating.value = null }
 }
 
-onMounted(() => load())
+onMounted(load)
 </script>
 
 <style scoped>

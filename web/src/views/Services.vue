@@ -15,7 +15,7 @@
         <button v-if="sortBy" class="btn btn-sm btn-ghost" @click="toggleDir" :title="sortDir==='desc'?'从大到小':'从小到大'">{{ sortDir==='desc'?'↓':'↑' }}</button>
       </div>
       <button class="btn btn-ghost btn-sm" @click="load(true)">🔄 {{ t('refresh') }}</button>
-      <span v-if="fromCache" style="font-size:11px;color:#f59e0b;margin-left:4px">📦 缓存数据</span>
+      <span v-if="fromCache" style="font-size:11px;color:#f59e0b;margin-left:4px">📦 缓存</span>
       <span style="margin-left:auto;font-size:12px;color:#9ca3af">{{ filtered.length }} 个服务</span>
     </div>
 

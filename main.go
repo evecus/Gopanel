@@ -47,6 +47,7 @@ func main() {
 
 	// 启动服务端缓存，每30秒后台刷新 docker 和 services 数据
 	cache.Start(30 * time.Second)
+	api.AppVersion = version
 
 	router := api.SetupRouter(cfg, db, hub, webFS)
 

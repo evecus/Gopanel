@@ -117,7 +117,7 @@
             <span style="font-weight:600;color:#1e1b4b;min-width:72px;overflow:hidden;text-overflow:ellipsis">{{ iface.name }}</span>
             <span style="color:#10b981;font-family:monospace;font-size:12px;flex:1">↑{{ fmtSpeed(iface.speed_up) }}</span>
             <span style="color:#6366f1;font-family:monospace;font-size:12px;flex:1">↓{{ fmtSpeed(iface.speed_down) }}</span>
-            <span style="font-size:11px;color:#9ca3af">{{ (iface.addrs||[])[0]?.split('/')[0] }}</span>
+
           </div>
         </div>
       </div>
@@ -191,8 +191,7 @@ const sysItems = computed(() => [
   { label: t('arch'), value: sysInfo.value.arch },
   { label: t('uptime'), value: sysInfo.value.uptime_str },
   { label: 'CPU', value: sysInfo.value.cpu_model },
-  { label: t('local_ip'), value: sysInfo.value.local_ipv4 },
-  { label: t('public_ip'), value: sysInfo.value.public_ip },
+
 ])
 const maxDisk = computed(() => (snap.value.disk?.partitions||[]).reduce((m,p)=>Math.max(m,p.used_percent||0),0))
 const diskParts = computed(() => (snap.value.disk?.partitions||[]).length)
@@ -283,7 +282,7 @@ onUnmounted(() => { window.removeEventListener('ws-msg', wsh); chart?.dispose();
 .tab.active { background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-color:transparent;box-shadow:0 2px 8px rgba(99,102,241,0.3); }
 @media (max-width:1100px) { .cards-row { grid-template-columns:1fr 1fr; } .mid-row { grid-template-columns:1fr 1fr; } .sys-grid { grid-template-columns:repeat(3,1fr); } }
 @media (max-width:680px)  { .cards-row,.mid-row,.bot-row { grid-template-columns:1fr; } .sys-grid { grid-template-columns:1fr 1fr; } .disk-grid { grid-template-columns:1fr; } }
-.iface-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:4px; }
+.iface-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:8px; }
 .iface-card { background:rgba(99,102,241,0.03);border:1px solid rgba(99,102,241,0.09);border-radius:10px;padding:12px; }
 .iface-dot  { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
 .iface-dot.active { background:#10b981;box-shadow:0 0 6px rgba(16,185,129,0.5);animation:pulse 2s infinite; }

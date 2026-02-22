@@ -82,6 +82,35 @@ func SetupRouter(cfg *config.Config, db *sql.DB, hub *ws.Hub, webFS embed.FS) *g
 			if err != nil { c.JSON(500, gin.H{"error": err.Error()}); return }
 			c.JSON(200, gin.H{"logs": logs})
 		})
+		auth.GET("/docker/containers/:id/inspect", func(c *gin.Context) {
+			result, err := collector.InspectContainer(c.Param("id"))
+			if err != nil { c.JSON(500, gin.H{"error": err.Error()}); return }
+			c.JSON(200, result)
+		})
+		auth.POST("/docker/containers/:id/update", func(c *gin.Context) {
+			log, err := collector.PullAndUpdateContainer(c.Param("id"))
+			if err != nil { c.JSON(500, gin.H{"error": err.Error(), "log": log}); return }
+			c.JSON(200, gin.H{"log": log})
+		})
+		auth.GET("/docker/compose/file", func(c *gin.Context) {
+			path := c.Query("path")
+			if path == "" { c.JSON(400, gin.H{"error": "path required"}); return }
+			content, err := collector.ReadComposeFile(path)
+			if err != nil { c.JSON(500, gin.H{"error": err.Error()}); return }
+			c.JSON(200, gin.H{"content": content})
+		})
+		auth.POST("/docker/compose/apply", func(c *gin.Context) {
+			var req struct {
+				Path string `json:"path"`
+				Content string `json:"content"`
+				ContainerID string `json:"container_id"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil { c.JSON(400, gin.H{"error": "invalid request"}); return }
+			if req.Path == "" { c.JSON(400, gin.H{"error": "path required"}); return }
+			log2, err := collector.WriteAndApplyCompose(req.Path, req.Content, req.ContainerID)
+			if err != nil { c.JSON(500, gin.H{"error": err.Error(), "log": log2}); return }
+			c.JSON(200, gin.H{"message": "重建成功", "log": log2})
+		})
 
 		auth.GET("/services", func(c *gin.Context) {
 			sortBy  := c.DefaultQuery("sort", "")

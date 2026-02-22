@@ -285,7 +285,7 @@ onUnmounted(() => { window.removeEventListener('ws-msg', wsh); chart?.dispose();
 @media (max-width:1100px) { .cards-row { grid-template-columns:1fr 1fr; } .mid-row { grid-template-columns:1fr 1fr; } .sys-grid { grid-template-columns:repeat(3,1fr); } }
 @media (max-width:680px)  { .cards-row,.mid-row,.bot-row { grid-template-columns:1fr; } .sys-grid { grid-template-columns:1fr 1fr; } .disk-grid { grid-template-columns:1fr; } }
 .iface-grid { display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;justify-content:center; }
-.iface-card { flex:0 0 320px;background:rgba(99,102,241,0.03);border:1px solid rgba(99,102,241,0.09);border-radius:10px;padding:14px; }
+.iface-card { flex:0 0 240px;background:rgba(99,102,241,0.03);border:1px solid rgba(99,102,241,0.09);border-radius:10px;padding:14px; }
 .iface-dot  { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
 .iface-dot.active { background:#10b981;box-shadow:0 0 6px rgba(16,185,129,0.5);animation:pulse 2s infinite; }
 .iface-dot.idle   { background:#9ca3af; }

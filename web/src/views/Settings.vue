@@ -55,7 +55,7 @@
             </div>
           </div>
           <div class="info-box">
-            <div class="ib-row"><span>{{ t('version') }}</span><strong>GoPanel v1.0</strong></div>
+            <div class="ib-row"><span>{{ t('version') }}</span><strong>{{ appVersion }}</strong></div>
             <div class="ib-row"><span>Go + Vue 3</span><strong>MIT License</strong></div>
             <div class="ib-row"><span>Port</span><strong>1080</strong></div>
           </div>
@@ -82,6 +82,7 @@ async function saveCredentials() {
   } finally { credLoading.value=false }
 }
 function saveLang() { localStorage.setItem('gp_lang', i18n.locale.value) }
+axios.get('/api/version').then(r => appVersion.value = 'GoPanel ' + (r.data.version||'')).catch(()=>{})
 onMounted(() => {})
 </script>
 <style scoped>

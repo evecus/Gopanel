@@ -57,7 +57,6 @@
           <div class="info-box">
             <div class="ib-row"><span>{{ t('version') }}</span><strong>{{ appVersion }}</strong></div>
             <div class="ib-row"><span>Go + Vue 3</span><strong>MIT License</strong></div>
-            <div class="ib-row"><span>Port</span><strong>1080</strong></div>
           </div>
         </div>
       </div>
@@ -65,26 +64,42 @@
     </div>
   </div>
 </template>
+
 <script setup>
 import { ref, onMounted } from 'vue'
+import axios from 'axios'
 import { useI18n } from '../stores/i18n.js'
-const i18n = useI18n(); const t = k => i18n.t(k)
-const creds = ref({ username:'', password:'', new_username:'', new_password:'' })
-const credMsg = ref(''), credErr = ref(''), credLoading = ref(false)
+
+const i18n = useI18n()
+const t = k => i18n.t(k)
+
+const appVersion = ref('GoPanel')
+const creds = ref({ username: '', password: '', new_username: '', new_password: '' })
+const credMsg = ref('')
+const credErr = ref('')
+const credLoading = ref(false)
+
 async function saveCredentials() {
-  credMsg.value=''; credLoading.value=true
+  credMsg.value = ''; credLoading.value = true
   try {
     await axios.post('/api/settings/credentials', creds.value)
-    credMsg.value='ok'
-    creds.value = { username:'', password:'', new_username:'', new_password:'' }
+    credMsg.value = 'ok'
+    creds.value = { username: '', password: '', new_username: '', new_password: '' }
   } catch(e) {
-    credMsg.value='err'; credErr.value = e.response?.data?.error || e.message
-  } finally { credLoading.value=false }
+    credMsg.value = 'err'; credErr.value = e.response?.data?.error || e.message
+  } finally { credLoading.value = false }
 }
+
 function saveLang() { localStorage.setItem('gp_lang', i18n.locale.value) }
-axios.get('/api/version').then(r => appVersion.value = 'GoPanel ' + (r.data.version||'')).catch(()=>{})
-onMounted(() => {})
+
+onMounted(async () => {
+  try {
+    const { data } = await axios.get('/api/version')
+    appVersion.value = 'GoPanel ' + (data.version || '')
+  } catch { /* keep default */ }
+})
 </script>
+
 <style scoped>
 .settings-page { }
 .settings-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px; }
@@ -95,7 +110,7 @@ onMounted(() => {})
 .sd { font-size:13px;color:#9ca3af;margin-top:3px; }
 .field { display:flex;flex-direction:column;gap:6px; }
 .field label { font-size:13px;font-weight:500;color:#4f46e5; }
-.input { background:#f8faff;border:1.5px solid rgba(99,102,241,0.15);color:#1e1b4b;border-radius:8px;padding:9px 13px;font-size:13px;font-family:inherit;outline:none;transition:border-color 0.2s,box-shadow 0.2s;width:100%; }
+.input { background:#f8faff;border:1.5px solid rgba(99,102,241,0.15);color:#1e1b4b;border-radius:8px;padding:9px 13px;font-size:13px;font-family:inherit;outline:none;transition:border-color 0.2s,box-shadow 0.2s;width:100%;box-sizing:border-box; }
 .input:focus { border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
 .alert { padding:10px 14px;border-radius:8px;font-size:13px; }
 .alert-success { background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);color:#059669; }
@@ -108,9 +123,7 @@ onMounted(() => {})
 .info-box { background:rgba(99,102,241,0.04);border:1px solid rgba(99,102,241,0.1);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px; }
 .ib-row { display:flex;justify-content:space-between;font-size:13px;color:#6b7280; }
 .ib-row strong { color:#1e1b4b; }
-.info-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px; }
-.ig-item { background:rgba(99,102,241,0.04);border:1px solid rgba(99,102,241,0.08);border-radius:10px;padding:12px; }
-.ig-lbl { font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px; }
-.ig-val { font-size:13px;color:#1e1b4b;font-weight:500;overflow:hidden;text-overflow:ellipsis; }
+.animate-spin { animation:spin 1s linear infinite;display:inline-block; }
+@keyframes spin { to { transform:rotate(360deg); } }
 @media (max-width:768px) { .settings-grid { grid-template-columns:1fr; } }
 </style>
